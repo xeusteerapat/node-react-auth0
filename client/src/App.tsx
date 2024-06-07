@@ -14,12 +14,13 @@ const LogoutButton: React.FC = () => {
 
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
   const { accessToken } = useAuth();
-  return accessToken ? children : <Navigate to='/' />;
+  console.log('access token in App.tsx', accessToken);
+  return accessToken ? children : <Navigate to="/" />;
 };
 
-const ProtectedComponent: React.FC = () => (
-  <div>This is a protected route.</div>
-);
+const ProtectedComponent: React.FC = () => {
+  return <div>This is a protected route.</div>;
+};
 
 const Main: React.FC = () => {
   const { accessToken } = useAuth();
@@ -37,15 +38,15 @@ const Main: React.FC = () => {
 
 const Callback: React.FC = () => {
   const { accessToken } = useAuth();
-  return accessToken ? <Navigate to='/' /> : <div>Loading...</div>;
+  return accessToken ? <Navigate to="/" /> : <div>Loading...</div>;
 };
 
 const App: React.FC = () => (
   <Routes>
-    <Route path='/' element={<Main />} />
-    <Route path='/callback' element={<Callback />} />
+    <Route path="/" element={<Main />} />
+    <Route path="/callback" element={<Callback />} />
     <Route
-      path='/protected'
+      path="/protected"
       element={
         <ProtectedRoute>
           <ProtectedComponent />

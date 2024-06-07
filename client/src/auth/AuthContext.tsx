@@ -4,12 +4,10 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
-const domain = 'YOUR_AUTH0_DOMAIN';
-const clientId = 'YOUR_AUTH0_CLIENT_ID';
-const audience = 'YOUR_AUTH0_AUDIENCE'; // your API domain
 const redirectUri = window.location.origin + '/callback';
 
 console.log(redirectUri);
@@ -36,22 +34,34 @@ interface AuthProviderProps {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const hasFetchToken = useRef(false);
 
   useEffect(() => {
+    if (hasFetchToken.current) return;
+
+    hasFetchToken.current = true;
+
     const handleAuth = async () => {
-      const code = new URLSearchParams(window.location.search).get('code');
+      try {
+        const code = new URLSearchParams(window.location.search).get('code');
 
-      if (code && !accessToken) {
-        console.log('code is', code);
-        const response = await axios.post(`https://${domain}/oauth/token`, {
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: 'YOUR_AUTH0_CLIENT_SECRET', // you can get this from the Auth0 dashboard
-          audience,
-        });
+        if (code && !accessToken) {
+          console.log('code is', code);
+          const response = await axios({
+            method: 'post',
+            url: `http://localhost:5001/auth/${code}`,
+            headers: {
+              'Access-Control-Allow-Credentials': true,
+            },
+          });
+          console.log('accessToken is', accessToken);
 
-        setAccessToken(response.data.access_token);
-        window.history.replaceState({}, document.title, '/');
+          setAccessToken(response.data.access_token);
+          window.history.replaceState({}, document.title, '/');
+        }
+      } catch (error) {
+        console.log(error);
+        hasFetchToken.current = false;
       }
     };
 
@@ -59,8 +69,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [accessToken]);
 
   const login = () => {
-    const authUrl = `https://${domain}/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=openid profile email&audience=${audience}`;
-
+    const authUrl = 'http://localhost:5001/login';
     console.log(authUrl);
     window.location.href = authUrl;
   };
