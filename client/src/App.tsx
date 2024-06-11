@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAuth } from './auth/AuthContext';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import axios from 'axios';
 
 const LoginButton: React.FC = () => {
   const { login } = useAuth();
@@ -19,7 +20,38 @@ const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
 };
 
 const ProtectedComponent: React.FC = () => {
-  return <div>This is a protected route.</div>;
+  const [protectData, setProtectData] = React.useState<{
+    message: string;
+  } | null>(null);
+  const hasFetchToken = useRef(false);
+
+  React.useEffect(() => {
+    if (hasFetchToken.current) return;
+
+    hasFetchToken.current = true;
+
+    try {
+      const fetchProtectedData = async () => {
+        const response = await axios({
+          method: 'get',
+          url: 'http://localhost:5001/protect',
+          headers: {
+            'Access-Control-Allow-Credentials': true,
+          },
+          withCredentials: true,
+        });
+
+        setProtectData(response.data);
+      };
+
+      fetchProtectedData();
+    } catch (error) {
+      console.log(error);
+      hasFetchToken.current = false;
+    }
+  }, []);
+
+  return <div>This is a protected route. {protectData?.message}</div>;
 };
 
 const Main: React.FC = () => {

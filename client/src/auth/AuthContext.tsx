@@ -1,4 +1,3 @@
-import axios from 'axios';
 import {
   ReactNode,
   createContext,
@@ -7,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { apiInstance } from '../libs/instanceRequest';
 
 const redirectUri = window.location.origin + '/callback';
 
@@ -47,12 +47,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         if (code && !accessToken) {
           console.log('code is', code);
-          const response = await axios({
+          const response = await apiInstance({
             method: 'post',
-            url: `http://localhost:5001/auth/${code}`,
-            headers: {
-              'Access-Control-Allow-Credentials': true,
-            },
+            url: `/auth/${code}`,
           });
           console.log('accessToken is', accessToken);
 
