@@ -2,17 +2,47 @@
 
 const express = require('express');
 const cors = require('cors');
-const { auth } = require('express-openid-connect');
-const { requiresAuth } = require('express-openid-connect');
-const { auth: jwtAuth } = require('express-oauth2-jwt-bearer');
-const { unless } = require('express-unless');
+const session = require('express-session');
+const RedisStore = require('connect-redis').default;
+const Redis = require('ioredis');
+const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const crypto = require('crypto');
+
+const { config } = require('./middlewares/oidc');
 
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  })
+);
+
+const redisClient = new Redis({
+  host: 'localhost',
+  port: 6379,
+  password: process.env.REDIS_PASSWORD,
+});
+
+const store = new RedisStore({ client: redisClient });
+
+app.use(
+  session({
+    store,
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 3600000,
+      sameSite: 'lax',
+    },
+  })
+);
 
 const base64URLEncode = (str) =>
   str
@@ -27,15 +57,6 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest();
 }
 const challenge = base64URLEncode(sha256(verifier));
-
-const config = {
-  authRequired: false,
-  auth0Logout: true,
-  baseURL: process.env.API_BASE_URL,
-  clientID: process.env.AUTH0_CLIENT_ID,
-  issuerBaseURL: process.env.AUTH0_DOMAIN,
-  secret: process.env.OPEN_ID_CONNECT_SECRET_CONFIG, // random string 32 chars
-};
 
 app.get('/login', (req, res) => {
   // redirect to fe
@@ -55,12 +76,6 @@ app.get('/login', (req, res) => {
   res.redirect(baseLoginUrl.toString());
 });
 
-app.use(auth(config));
-
-app.get('/', (req, res) => {
-  res.send('OK');
-});
-
 app.post('/auth/:code', async (req, res) => {
   try {
     const response = await axios.post(`${config.issuerBaseURL}/oauth/token`, {
@@ -73,6 +88,8 @@ app.post('/auth/:code', async (req, res) => {
       audience: config.baseURL,
     });
 
+    req.session.accessToken = response.data.access_token;
+
     res.send(response.data);
   } catch (error) {
     console.log(error?.response?.data);
@@ -82,25 +99,48 @@ app.post('/auth/:code', async (req, res) => {
   }
 });
 
-app.get('/profile', requiresAuth(), (req, res) => {
-  res.send(JSON.stringify(req.oidc.user));
+// app.use(oidc);
+
+app.use(async (req, res, next) => {
+  console.log('check session middleware', req.session);
+  const token = req.session.accessToken;
+  if (!token) return res.sendStatus(401);
+
+  try {
+    jwt.verify(token, process.env.AUTH0_API_SECRET, (err, user) => {
+      if (err) return res.sendStatus(403);
+      req.user = user;
+      next();
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(403).send({
+      message: error?.response?.data || 'Forbidden',
+    });
+  }
 });
 
-// Middleware to validate access tokens
-const jwtConfig = {
-  audience: process.env.API_BASE_URL,
-  issuerBaseURL: process.env.AUTH0_DOMAIN,
-  secret: process.env.AUTH0_API_SECRET, // you can get this from the Auth0 dashboard
-  tokenSigningAlg: 'HS256',
-};
+app.get('/', (req, res) => {
+  res.send({
+    message: 'OK',
+  });
+});
 
-const checkJwt = jwtAuth(jwtConfig);
+// TODO: need to research more details about this lib again
+// const checkJwt = jwtAuth;
 
-checkJwt.unless = unless;
-// app.use(checkJwt.unless({ path: ['/', '/profile'] }));
+// checkJwt.unless = unless;
+// app.use(checkJwt.unless({ path: ['/', '/login', '/auth/:code'] }));
 
-app.get('/api/protected', (req, res) => {
-  res.send('This is a protected endpoint');
+app.get('/profile', (req, res) => {
+  res.send(JSON.stringify(req));
+});
+
+app.get('/protect', (req, res) => {
+  console.log('xxxx', req.session);
+  res.send({
+    message: 'Protected',
+  });
 });
 
 app.listen(5001, () => {
