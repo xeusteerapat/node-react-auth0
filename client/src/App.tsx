@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from './auth/AuthContext';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const LoginButton: React.FC = () => {
   const { login } = useAuth();
@@ -20,44 +20,44 @@ const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
 };
 
 const ProtectedComponent: React.FC = () => {
-  const [protectData, setProtectData] = React.useState<{
-    message: string;
-  } | null>(null);
+  return <div>This is a protected route.</div>;
+};
+
+const Main: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const hasFetchToken = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (hasFetchToken.current) return;
 
     hasFetchToken.current = true;
 
     try {
       const fetchProtectedData = async () => {
-        const response = await axios({
+        await axios({
           method: 'get',
-          url: 'http://localhost:5001/protect',
+          url: 'http://localhost:5001',
           headers: {
             'Access-Control-Allow-Credentials': true,
           },
           withCredentials: true,
         });
 
-        setProtectData(response.data);
+        setIsAuthenticated(true);
       };
 
       fetchProtectedData();
     } catch (error) {
-      console.log(error);
+      if (error instanceof AxiosError) {
+        if (error.response?.status === 401) {
+          console.log('Unauthorized');
+        }
+      }
       hasFetchToken.current = false;
     }
   }, []);
 
-  return <div>This is a protected route. {protectData?.message}</div>;
-};
-
-const Main: React.FC = () => {
-  const { accessToken } = useAuth();
-
-  return accessToken ? (
+  return isAuthenticated ? (
     <div>
       <h1>Welcome</h1>
       <LogoutButton />
