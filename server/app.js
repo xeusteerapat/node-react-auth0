@@ -38,7 +38,7 @@ app.use(
     cookie: {
       secure: false,
       httpOnly: true,
-      maxAge: 3600000,
+      maxAge: 86400000,
       sameSite: 'lax',
     },
   })
@@ -56,6 +56,7 @@ const verifier = base64URLEncode(crypto.randomBytes(64));
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest();
 }
+
 const challenge = base64URLEncode(sha256(verifier));
 
 app.get('/login', (req, res) => {
@@ -133,7 +134,9 @@ app.get('/', (req, res) => {
 // app.use(checkJwt.unless({ path: ['/', '/login', '/auth/:code'] }));
 
 app.get('/profile', (req, res) => {
-  res.send(JSON.stringify(req));
+  const { user } = req;
+  console.log('user', user);
+  res.send({ message: 'Profile page' });
 });
 
 app.get('/protect', (req, res) => {
