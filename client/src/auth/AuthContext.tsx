@@ -8,10 +8,6 @@ import {
 } from 'react';
 import { apiInstance } from '../libs/instanceRequest';
 
-const redirectUri = window.location.origin + '/callback';
-
-console.log(redirectUri);
-
 interface AuthContextProps {
   accessToken: string | null;
   login: () => void;
